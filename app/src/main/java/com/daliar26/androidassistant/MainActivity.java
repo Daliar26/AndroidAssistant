@@ -130,4 +130,4 @@ public class MainActivity extends Activity {
         super.onResume();
         refresh();
     }
-}\n
+}
