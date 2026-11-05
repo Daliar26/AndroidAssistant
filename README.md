@@ -1,12 +1,9 @@
-# AndroidAssistant
+# SubtitleApp 2.0
 
-Android media session controller.
+Android live subtitles with Vosk.
 
-Features:
-- Play and pause
-- Previous and next track
-- Stop playback
-- Active media session detection
-
-Build:
-gradle assembleDebug\n
+- Russian and English recognition
+- Microphone mode
+- Android playback capture
+- Floating overlay
+- Offline recognition after model download

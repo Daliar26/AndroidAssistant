@@ -1,11 +1,3 @@
-// build.gradle (Root level)
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        // Явно указываем плагин Android
-        classpath 'com.android.tools.build:gradle:8.7.3'
-    }
+plugins {
+    id 'com.android.application' version '8.7.3' apply false
 }

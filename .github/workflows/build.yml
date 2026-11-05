@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -15,26 +16,19 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
+          distribution: temurin
 
-      # Установка именно этой версии Gradle
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9' # Попробуем вернуть 8.9, так как новый build.gradle должен работать с ней
+          gradle-version: '8.11.1'
 
-      # ВАЖНО: Используем ./gradlew, если бы он был, но у нас его нет.
-      # Поэтому запускаем системную команду gradle, которую поставил setup-gradle
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew || true
-        
-      - name: Build with Gradle
-        # Запускаем сборку. Флаг --no-daemon помогает избежать проблем с демонами в CI
+      - name: Build APK
         run: gradle assembleDebug --no-daemon --stacktrace
-# ЭТОТ БЛОК ОТВЕЧАЕТ ЗА СОХРАНЕНИЕ APK
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk          # Название архива, которое увидишь в Artifacts
-          path: app/build/outputs/apk/debug/app-debug.apk # Путь к файлу внутри проекта
-          retention-days: 5            # Сколько дней хранить файл (по умолчанию 90)
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 5
