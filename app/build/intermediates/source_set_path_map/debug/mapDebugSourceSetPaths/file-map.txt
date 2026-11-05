@@ -1,0 +1,15 @@
+com.daliar26.subtitles.app-startup-runtime-1.1.1-0 /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/02e5a338a73bc942565a8adc1871f2f4/transformed/startup-runtime-1.1.1/res
+com.daliar26.subtitles.app-lifecycle-runtime-2.6.2-1 /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/0f8e48f9afec4575ecde254dc3471cdf/transformed/lifecycle-runtime-2.6.2/res
+com.daliar26.subtitles.app-tracing-1.2.0-2 /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/73e5788edd37fb400be546bb994dd167/transformed/tracing-1.2.0/res
+com.daliar26.subtitles.app-profileinstaller-1.3.0-3 /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/res
+com.daliar26.subtitles.app-core-runtime-2.2.0-4 /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/97b573818050cdbf1572028cb347709f/transformed/core-runtime-2.2.0/res
+com.daliar26.subtitles.app-jna-5.18.1-5 /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/9a7ee629678512bab4133bea9374c8ea/transformed/jna-5.18.1/res
+com.daliar26.subtitles.app-core-1.15.0-6 /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/dcd03353270edec6e98ababa26f67de2/transformed/core-1.15.0/res
+com.daliar26.subtitles.app-annotation-experimental-1.4.1-7 /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/fbd83b340e7400460c56c1fa849dd610/transformed/annotation-experimental-1.4.1/res
+com.daliar26.subtitles.app-pngs-8 /data/data/com.termux/files/home/AndroidAssistant/app/build/generated/res/pngs/debug
+com.daliar26.subtitles.app-resValues-9 /data/data/com.termux/files/home/AndroidAssistant/app/build/generated/res/resValues/debug
+com.daliar26.subtitles.app-packageDebugResources-10 /data/data/com.termux/files/home/AndroidAssistant/app/build/intermediates/incremental/debug/packageDebugResources/merged.dir
+com.daliar26.subtitles.app-packageDebugResources-11 /data/data/com.termux/files/home/AndroidAssistant/app/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
+com.daliar26.subtitles.app-debug-12 /data/data/com.termux/files/home/AndroidAssistant/app/build/intermediates/merged_res/debug/mergeDebugResources
+com.daliar26.subtitles.app-debug-13 /data/data/com.termux/files/home/AndroidAssistant/app/src/debug/res
+com.daliar26.subtitles.app-main-14 /data/data/com.termux/files/home/AndroidAssistant/app/src/main/res

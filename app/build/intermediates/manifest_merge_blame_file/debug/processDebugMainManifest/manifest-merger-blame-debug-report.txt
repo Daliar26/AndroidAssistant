@@ -1,0 +1,140 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.daliar26.subtitles"
+4    android:versionCode="2"
+5    android:versionName="2.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="26"
+9        android:targetSdkVersion="34" />
+10
+11    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+11-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:3:5-70
+11-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:3:22-68
+12    <uses-permission android:name="android.permission.INTERNET" />
+12-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:4:5-66
+12-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:4:22-64
+13    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+13-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:5:5-77
+13-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:5:22-75
+14    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+14-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:6:5-76
+14-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:6:22-74
+15    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+15-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:7:5-87
+15-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:7:22-85
+16    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+16-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:8:5-93
+16-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:8:22-91
+17    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+17-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:9:5-76
+17-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:9:22-74
+18
+19    <permission
+19-->[androidx.core:core:1.15.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/dcd03353270edec6e98ababa26f67de2/transformed/core-1.15.0/AndroidManifest.xml:22:5-24:47
+20        android:name="com.daliar26.subtitles.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+20-->[androidx.core:core:1.15.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/dcd03353270edec6e98ababa26f67de2/transformed/core-1.15.0/AndroidManifest.xml:23:9-81
+21        android:protectionLevel="signature" />
+21-->[androidx.core:core:1.15.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/dcd03353270edec6e98ababa26f67de2/transformed/core-1.15.0/AndroidManifest.xml:24:9-44
+22
+23    <uses-permission android:name="com.daliar26.subtitles.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+23-->[androidx.core:core:1.15.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/dcd03353270edec6e98ababa26f67de2/transformed/core-1.15.0/AndroidManifest.xml:26:5-97
+23-->[androidx.core:core:1.15.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/dcd03353270edec6e98ababa26f67de2/transformed/core-1.15.0/AndroidManifest.xml:26:22-94
+24
+25    <application
+25-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:11:5-30:19
+26        android:allowBackup="false"
+26-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:12:9-36
+27        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+27-->[androidx.core:core:1.15.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/dcd03353270edec6e98ababa26f67de2/transformed/core-1.15.0/AndroidManifest.xml:28:18-86
+28        android:debuggable="true"
+29        android:extractNativeLibs="true"
+30        android:label="SubtitleApp"
+30-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:13:9-36
+31        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+31-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:14:9-72
+32        android:usesCleartextTraffic="false" >
+32-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:15:9-45
+33        <activity
+33-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:17:9-24:20
+34            android:name="com.daliar26.subtitles.MainActivity"
+34-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:18:13-41
+35            android:exported="true" >
+35-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:19:13-36
+36            <intent-filter>
+36-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:20:13-23:29
+37                <action android:name="android.intent.action.MAIN" />
+37-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:21:17-68
+37-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:21:25-66
+38
+39                <category android:name="android.intent.category.LAUNCHER" />
+39-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:22:17-76
+39-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:22:27-74
+40            </intent-filter>
+41        </activity>
+42
+43        <service
+43-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:26:9-29:73
+44            android:name="com.daliar26.subtitles.SubtitleForegroundService"
+44-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:27:13-54
+45            android:exported="false"
+45-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:28:13-37
+46            android:foregroundServiceType="microphone|mediaProjection" />
+46-->/data/data/com.termux/files/home/AndroidAssistant/app/src/main/AndroidManifest.xml:29:13-71
+47
+48        <provider
+48-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:24:9-32:20
+49            android:name="androidx.startup.InitializationProvider"
+49-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:25:13-67
+50            android:authorities="com.daliar26.subtitles.androidx-startup"
+50-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:26:13-68
+51            android:exported="false" >
+51-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:27:13-37
+52            <meta-data
+52-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:29:13-31:52
+53                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+53-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:30:17-85
+54                android:value="androidx.startup" />
+54-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:31:17-49
+55        </provider>
+56
+57        <receiver
+57-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:34:9-52:20
+58            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+58-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:35:13-76
+59            android:directBootAware="false"
+59-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:36:13-44
+60            android:enabled="true"
+60-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:37:13-35
+61            android:exported="true"
+61-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:38:13-36
+62            android:permission="android.permission.DUMP" >
+62-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:39:13-57
+63            <intent-filter>
+63-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:40:13-42:29
+64                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+64-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:17-91
+64-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:25-88
+65            </intent-filter>
+66            <intent-filter>
+66-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:43:13-45:29
+67                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+67-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:17-85
+67-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:25-82
+68            </intent-filter>
+69            <intent-filter>
+69-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:46:13-48:29
+70                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+70-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:17-88
+70-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:25-85
+71            </intent-filter>
+72            <intent-filter>
+72-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:49:13-51:29
+73                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+73-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:17-95
+73-->[androidx.profileinstaller:profileinstaller:1.3.0] /data/data/com.termux/files/home/.gradle/caches/9.8.2/transforms/94a190d31ad2b58d220a60c89207d8c9/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:25-92
+74            </intent-filter>
+75        </receiver>
+76    </application>
+77
+78</manifest>
