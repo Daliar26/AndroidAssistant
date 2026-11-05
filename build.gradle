@@ -1,3 +1,14 @@
-plugins {
-    id 'com.android.application' version '8.7.3' apply false
-}/n
+// build.gradle (Root level)
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // Явно указываем плагин Android
+        classpath 'com.android.tools.build:gradle:8.7.3'
+    }
+}
+
+// Оставляем пустым или удаляем блок plugins {}, если он был
+// Если хочешь оставить plugins, то убери apply false, но лучше использовать buildscript для CI
