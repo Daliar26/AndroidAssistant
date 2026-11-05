@@ -78,18 +78,45 @@ public class SubtitleForegroundService extends Service {
         if (Build.VERSION.SDK_INT >= 29) type = system
             ? ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
             : ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, n, type);
+        try {
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, n, type);
+        } catch (Exception e) {
+            diagnostic("Не удалось запустить foreground service", e);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
 
         if (worker != null && worker.isAlive()) return START_NOT_STICKY;
         final String inputLang = speech;
         final boolean captureSystem = system;
         final int resultCode = intent.getIntExtra("resultCode", -1);
         final Intent projectionData = intent.getParcelableExtra("projectionData");
+
+        // Получаем MediaProjection в основном потоке после запуска foreground service.
+        if (captureSystem) {
+            try {
+                if (Build.VERSION.SDK_INT < 29 || projectionData == null || resultCode == -1)
+                    throw new SecurityException("Android не передал разрешение на системный звук.");
+                MediaProjectionManager manager = (MediaProjectionManager)
+                    getSystemService(MEDIA_PROJECTION_SERVICE);
+                projection = manager.getMediaProjection(resultCode, projectionData);
+                if (projection == null)
+                    throw new SecurityException("Android не выдал MediaProjection.");
+            } catch (Exception e) {
+                diagnostic("Ошибка получения разрешения MediaProjection", e);
+                status("Не удалось получить разрешение на системный звук: " + readableError(e));
+                stopForeground(STOP_FOREGROUND_REMOVE);
+                stopSelf();
+                return START_NOT_STICKY;
+            }
+        }
+
         running = true;
+        final MediaProjection sessionProjection = projection;
         worker = new Thread(() -> {
-            try { runRecognition(captureSystem, inputLang, resultCode, projectionData); }
+            try { runRecognition(captureSystem, inputLang, sessionProjection); }
             catch (Exception e) {
-                Log.e(TAG, "Processing error", e);
+                diagnostic("Ошибка обработки аудио или моделей", e);
                 status("Ошибка: " + readableError(e));
                 showSubtitle("", "Ошибка: " + readableError(e));
                 stopSelf();
@@ -99,18 +126,20 @@ public class SubtitleForegroundService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void runRecognition(boolean system, String lang, int code, Intent data)
+    private void runRecognition(boolean system, String lang, MediaProjection sessionProjection)
         throws Exception {
         if (system) {
-            if (Build.VERSION.SDK_INT < 29 || data == null || code == -1)
-                throw new Exception("Не получено разрешение на захват системного звука");
-            MediaProjectionManager manager = (MediaProjectionManager)
-                getSystemService(MEDIA_PROJECTION_SERVICE);
-            projection = manager.getMediaProjection(code, data);
-            if (projection == null) throw new Exception("Системный захват недоступен");
+            if (Build.VERSION.SDK_INT < 29 || sessionProjection == null)
+                throw new SecurityException("Не получено разрешение на захват системного звука.");
+            projection = sessionProjection;
             projection.registerCallback(new MediaProjection.Callback() {
-                @Override public void onStop() { running = false; stopSelf(); }
+                @Override public void onStop() {
+                    status("Android остановил захват системного звука.");
+                    running = false;
+                    stopSelf();
+                }
             }, main);
+            status("Разрешение получено. Подготавливаем захват системного звука...");
         }
 
         status("Проверяем модель распознавания речи...");
@@ -160,6 +189,7 @@ public class SubtitleForegroundService extends Service {
                     .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
                     .addMatchingUsage(AudioAttributes.USAGE_GAME)
                     .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN).build();
+            status("Создаём запись системного звука...");
             recorder = new AudioRecord.Builder().setAudioFormat(format)
                 .setBufferSizeInBytes(bufferSize).setAudioPlaybackCaptureConfig(config).build();
         } else {
@@ -170,7 +200,13 @@ public class SubtitleForegroundService extends Service {
         if (recorder.getState() != AudioRecord.STATE_INITIALIZED)
             throw new Exception("Не удалось открыть источник аудио");
         recorder.startRecording();
-        status("Слушаю речь. Перевод работает на устройстве.");
+        if (recorder.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING)
+            throw new Exception("AudioRecord не перешёл в режим записи.");
+        status(system
+            ? "Захват системного звука запущен. Воспроизведите речь в другом приложении."
+            : "Микрофон запущен. Говорите.");
+        appendDiagnostic("AudioRecord запущен; режим=" + (system ? "system" : "microphone")
+            + "; sampleRate=16000; buffer=" + bufferSize, null);
         byte[] buffer = new byte[4096];
         StringBuilder completed = new StringBuilder();
         while (running) {
@@ -236,11 +272,21 @@ public class SubtitleForegroundService extends Service {
         status("Загружаем модель речи " + (lang.equals("ru") ? "русского" : "английского")
             + " языка. При первом запуске это может занять время.");
         File zipFile = new File(base, name + ".zip");
+        status("Подключаемся к серверу модели речи...");
         HttpURLConnection c = (HttpURLConnection)
             new URL("https://alphacephei.com/vosk/models/" + name + ".zip").openConnection();
-        c.setConnectTimeout(20000); c.setReadTimeout(90000); c.connect();
+        c.setInstanceFollowRedirects(true);
+        c.setRequestProperty("User-Agent", "SubtitleApp/3.0 Android");
+        c.setConnectTimeout(30000);
+        c.setReadTimeout(120000);
+        c.connect();
+        int response = c.getResponseCode();
         int length = c.getContentLength();
-        if (c.getResponseCode() != 200) throw new Exception("Сервер модели вернул ошибку");
+        if (response != HttpURLConnection.HTTP_OK) {
+            String detail = "HTTP " + response + " " + c.getResponseMessage();
+            throw new IOException("Сервер модели не начал загрузку: " + detail);
+        }
+        status("Соединение установлено. Начинаем загрузку модели речи...");
         try (InputStream in = c.getInputStream(); FileOutputStream out = new FileOutputStream(zipFile)) {
             byte[] b = new byte[32768]; int n; long total = 0; int last = -1;
             while ((n = in.read(b)) != -1) {
@@ -343,11 +389,36 @@ public class SubtitleForegroundService extends Service {
     }
 
     private void status(String message) {
+        getSharedPreferences("subtitle_settings", MODE_PRIVATE).edit()
+            .putString("last_status", message).apply();
+        appendDiagnostic("СТАТУС: " + message, null);
         Intent i = new Intent(ACTION_STATUS);
         i.setPackage(getPackageName());
         i.putExtra("message", message);
         sendBroadcast(i);
         Log.i(TAG, message);
+    }
+
+    private void diagnostic(String message, Throwable error) {
+        Log.e(TAG, message, error);
+        appendDiagnostic(message, error);
+    }
+
+    private synchronized void appendDiagnostic(String message, Throwable error) {
+        File file = new File(getFilesDir(), "subtitle_diagnostics.txt");
+        try (FileWriter writer = new FileWriter(file, true)) {
+            writer.write(new java.text.SimpleDateFormat(
+                "yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date()));
+            writer.write("  " + message + "\n");
+            if (error != null) {
+                StringWriter sw = new StringWriter();
+                error.printStackTrace(new PrintWriter(sw));
+                writer.write(sw.toString());
+                writer.write("\n");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Не удалось записать диагностику", e);
+        }
     }
 
     private String readableError(Exception e) {

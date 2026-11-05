@@ -6,6 +6,7 @@ import android.content.*;
 import android.content.pm.PackageManager;
 import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
+import java.io.File;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.widget.*;
@@ -49,6 +50,9 @@ public class MainActivity extends Activity {
             }
             receiverRegistered = true;
         }
+        String saved = getSharedPreferences("subtitle_settings", MODE_PRIVATE)
+            .getString("last_status", null);
+        if (saved != null && status != null) status.setText(saved);
     }
 
     @Override protected void onPause() {
@@ -109,6 +113,7 @@ public class MainActivity extends Activity {
         addButton(root, "Запустить — микрофон", () -> begin(false));
         addButton(root, "Остановить", this::stopNow);
         addButton(root, "Управление языковыми моделями", this::manageModels);
+        addButton(root, "Диагностика и журнал ошибок", this::showDiagnostics);
 
         TextView note = new TextView(this);
         note.setText("\nРаспознавание речи сейчас поддерживает русский и английский. "
@@ -202,6 +207,29 @@ public class MainActivity extends Activity {
     private void stopNow() {
         stopService(new Intent(this, SubtitleForegroundService.class));
         status.setText("Остановка запрошена.");
+    }
+
+    private void showDiagnostics() {
+        File log = new File(getFilesDir(), "subtitle_diagnostics.txt");
+        String content = "Файл диагностики пока пуст.";
+        try {
+            if (log.exists()) content = new String(
+                java.nio.file.Files.readAllBytes(log.toPath()), "UTF-8");
+        } catch (Exception e) {
+            content = "Не удалось прочитать журнал: " + e.getMessage();
+        }
+        TextView view = new TextView(this);
+        view.setText(content);
+        view.setTextIsSelectable(true);
+        view.setTextSize(13);
+        view.setPadding(24, 16, 24, 16);
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(view);
+        new AlertDialog.Builder(this)
+            .setTitle("Диагностика SubtitleApp")
+            .setView(scroll)
+            .setPositiveButton("Закрыть", null)
+            .show();
     }
 
     private void manageModels() {
