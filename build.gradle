@@ -9,6 +9,3 @@ buildscript {
         classpath 'com.android.tools.build:gradle:8.7.3'
     }
 }
-
-// Оставляем пустым или удаляем блок plugins {}, если он был
-// Если хочешь оставить plugins, то убери apply false, но лучше использовать buildscript для CI
