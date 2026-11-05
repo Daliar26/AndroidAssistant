@@ -31,3 +31,10 @@ jobs:
       - name: Build with Gradle
         # Запускаем сборку. Флаг --no-daemon помогает избежать проблем с демонами в CI
         run: gradle assembleDebug --no-daemon --stacktrace
+# ЭТОТ БЛОК ОТВЕЧАЕТ ЗА СОХРАНЕНИЕ APK
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk          # Название архива, которое увидишь в Artifacts
+          path: app/build/outputs/apk/debug/app-debug.apk # Путь к файлу внутри проекта
+          retention-days: 5            # Сколько дней хранить файл (по умолчанию 90)
