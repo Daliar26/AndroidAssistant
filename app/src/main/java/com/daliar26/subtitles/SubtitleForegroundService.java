@@ -7,6 +7,9 @@ import android.content.pm.ServiceInfo;
 import android.graphics.*;
 import android.graphics.drawable.GradientDrawable;
 import android.media.*;
+import android.media.audiofx.AutomaticGainControl;
+import android.media.audiofx.NoiseSuppressor;
+import android.media.audiofx.AcousticEchoCanceler;
 import android.media.projection.*;
 import android.provider.Settings;
 import android.view.*;
@@ -25,6 +28,8 @@ import org.json.JSONObject;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.*;
 
 public class SubtitleForegroundService extends Service {
@@ -44,7 +49,12 @@ public class SubtitleForegroundService extends Service {
     private Thread worker;
     private WindowManager windowManager;
     private TextView subtitleView;
+    private NoiseSuppressor noiseSuppressor;
+    private AutomaticGainControl automaticGainControl;
+    private AcousticEchoCanceler echoCanceler;
     private final Handler main = new Handler(Looper.getMainLooper());
+    private final ExecutorService translationQueue = Executors.newSingleThreadExecutor();
+    private final AtomicLong displayGeneration = new AtomicLong(0);
     private String targetCode = "ru";
 
     @Override public void onCreate() {
@@ -57,8 +67,7 @@ public class SubtitleForegroundService extends Service {
     @Override public int onStartCommand(Intent intent, int flags, int id) {
         if (intent == null) { stopSelf(); return START_NOT_STICKY; }
         if (ACTION_DELETE_MODEL.equals(intent.getAction())) {
-            deleteModel(intent.getIntExtra("deleteType", -1),
-                intent.getStringExtra("target"));
+            deleteModel(intent.getIntExtra("deleteType", -1), intent.getStringExtra("target"));
             return START_NOT_STICKY;
         }
 
@@ -70,7 +79,7 @@ public class SubtitleForegroundService extends Service {
         showOriginal = intent.getBooleanExtra("showOriginal", true);
 
         Notification n = new Notification.Builder(this, CHANNEL)
-            .setContentTitle("SubtitleApp 3.0")
+            .setContentTitle("SubtitleApp 3.1")
             .setContentText("Подготовка распознавания и перевода")
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setOngoing(true).build();
@@ -78,45 +87,18 @@ public class SubtitleForegroundService extends Service {
         if (Build.VERSION.SDK_INT >= 29) type = system
             ? ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
             : ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
-        try {
-            ServiceCompat.startForeground(this, NOTIFICATION_ID, n, type);
-        } catch (Exception e) {
-            diagnostic("Не удалось запустить foreground service", e);
-            stopSelf();
-            return START_NOT_STICKY;
-        }
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, n, type);
 
         if (worker != null && worker.isAlive()) return START_NOT_STICKY;
         final String inputLang = speech;
         final boolean captureSystem = system;
         final int resultCode = intent.getIntExtra("resultCode", -1);
         final Intent projectionData = intent.getParcelableExtra("projectionData");
-
-        // Получаем MediaProjection в основном потоке после запуска foreground service.
-        if (captureSystem) {
-            try {
-                if (Build.VERSION.SDK_INT < 29 || projectionData == null || resultCode == -1)
-                    throw new SecurityException("Android не передал разрешение на системный звук.");
-                MediaProjectionManager manager = (MediaProjectionManager)
-                    getSystemService(MEDIA_PROJECTION_SERVICE);
-                projection = manager.getMediaProjection(resultCode, projectionData);
-                if (projection == null)
-                    throw new SecurityException("Android не выдал MediaProjection.");
-            } catch (Exception e) {
-                diagnostic("Ошибка получения разрешения MediaProjection", e);
-                status("Не удалось получить разрешение на системный звук: " + readableError(e));
-                stopForeground(STOP_FOREGROUND_REMOVE);
-                stopSelf();
-                return START_NOT_STICKY;
-            }
-        }
-
         running = true;
-        final MediaProjection sessionProjection = projection;
         worker = new Thread(() -> {
-            try { runRecognition(captureSystem, inputLang, sessionProjection); }
+            try { runRecognition(captureSystem, inputLang, resultCode, projectionData); }
             catch (Exception e) {
-                diagnostic("Ошибка обработки аудио или моделей", e);
+                Log.e(TAG, "Processing error", e);
                 status("Ошибка: " + readableError(e));
                 showSubtitle("", "Ошибка: " + readableError(e));
                 stopSelf();
@@ -126,20 +108,16 @@ public class SubtitleForegroundService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void runRecognition(boolean system, String lang, MediaProjection sessionProjection)
-        throws Exception {
+    private void runRecognition(boolean system, String lang, int code, Intent data) throws Exception {
         if (system) {
-            if (Build.VERSION.SDK_INT < 29 || sessionProjection == null)
-                throw new SecurityException("Не получено разрешение на захват системного звука.");
-            projection = sessionProjection;
+            if (Build.VERSION.SDK_INT < 29 || data == null || code == -1)
+                throw new Exception("Не получено разрешение на захват системного звука");
+            MediaProjectionManager manager = (MediaProjectionManager)getSystemService(MEDIA_PROJECTION_SERVICE);
+            projection = manager.getMediaProjection(code, data);
+            if (projection == null) throw new Exception("Системный захват недоступен");
             projection.registerCallback(new MediaProjection.Callback() {
-                @Override public void onStop() {
-                    status("Android остановил захват системного звука.");
-                    running = false;
-                    stopSelf();
-                }
+                @Override public void onStop() { running = false; stopSelf(); }
             }, main);
-            status("Разрешение получено. Подготавливаем захват системного звука...");
         }
 
         status("Проверяем модель распознавания речи...");
@@ -148,6 +126,8 @@ public class SubtitleForegroundService extends Service {
         status("Загружаем модель распознавания в память...");
         model = new Model(modelDir.getAbsolutePath());
         recognizer = new Recognizer(model, 16000.0f);
+        recognizer.setWords(true);
+        recognizer.setPartialWords(true);
 
         status("Подготавливаем переводчик...");
         if (!lang.equals(targetCode)) {
@@ -156,62 +136,59 @@ public class SubtitleForegroundService extends Service {
             translator = Translation.getClient(options);
             DownloadConditions conditions = new DownloadConditions.Builder().build();
             final Object lock = new Object();
-            final boolean[] translationReady = {false};
-            final Exception[] translationError = {null};
+            final boolean[] ready = {false};
+            final Exception[] error = {null};
             translator.downloadModelIfNeeded(conditions)
-                .addOnSuccessListener(v -> { synchronized(lock) {
-                    translationReady[0] = true; lock.notifyAll(); }})
+                .addOnSuccessListener(v -> { synchronized(lock) { ready[0] = true; lock.notifyAll(); }})
                 .addOnFailureListener(e -> { synchronized(lock) {
-                    translationError[0] = new Exception("Не удалось загрузить модель перевода: " + e.getMessage());
-                    lock.notifyAll(); }});
+                    error[0] = new Exception("Не удалось загрузить модель перевода: " + e.getMessage());
+                    lock.notifyAll();
+                }});
             synchronized(lock) {
-                long end = System.currentTimeMillis() + 180000;
-                while (!translationReady[0] && translationError[0] == null
-                    && System.currentTimeMillis() < end) lock.wait(500);
+                long end = System.currentTimeMillis() + 240000;
+                while (!ready[0] && error[0] == null && System.currentTimeMillis() < end) lock.wait(500);
             }
-            if (!translationReady[0]) {
-                if (translationError[0] != null) throw translationError[0];
+            if (!ready[0]) {
+                if (error[0] != null) throw error[0];
                 throw new Exception("Истекло время ожидания загрузки перевода. Проверьте интернет.");
             }
-        } else {
-            status("Языки совпадают — перевод не требуется, показываю оригинал.");
-        }
+        } else status("Языки совпадают — перевод не требуется.");
 
         AudioFormat format = new AudioFormat.Builder().setSampleRate(16000)
             .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
             .setEncoding(AudioFormat.ENCODING_PCM_16BIT).build();
         int min = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT);
-        int bufferSize = Math.max(min, 8192);
+        if (min <= 0) throw new Exception("Телефон не поддерживает выбранный формат аудио");
+        int bufferSize = Math.max(min * 2, 16384);
         if (system) {
-            AudioPlaybackCaptureConfiguration config =
-                new AudioPlaybackCaptureConfiguration.Builder(projection)
-                    .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
-                    .addMatchingUsage(AudioAttributes.USAGE_GAME)
-                    .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN).build();
-            status("Создаём запись системного звука...");
+            AudioPlaybackCaptureConfiguration config = new AudioPlaybackCaptureConfiguration.Builder(projection)
+                .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
+                .addMatchingUsage(AudioAttributes.USAGE_GAME)
+                .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN).build();
             recorder = new AudioRecord.Builder().setAudioFormat(format)
                 .setBufferSizeInBytes(bufferSize).setAudioPlaybackCaptureConfig(config).build();
         } else {
-            recorder = new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION,
-                16000, AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+            recorder = new AudioRecord.Builder()
+                .setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
+                .setAudioFormat(format).setBufferSizeInBytes(bufferSize).build();
         }
         if (recorder.getState() != AudioRecord.STATE_INITIALIZED)
             throw new Exception("Не удалось открыть источник аудио");
+
+        if (!system) enableMicrophoneEnhancements();
         recorder.startRecording();
         if (recorder.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING)
-            throw new Exception("AudioRecord не перешёл в режим записи.");
-        status(system
-            ? "Захват системного звука запущен. Воспроизведите речь в другом приложении."
-            : "Микрофон запущен. Говорите.");
-        appendDiagnostic("AudioRecord запущен; режим=" + (system ? "system" : "microphone")
-            + "; sampleRate=16000; buffer=" + bufferSize, null);
-        byte[] buffer = new byte[4096];
+            throw new Exception("Аудиозапись не запустилась");
+        status(system ? "Слушаю системный звук..." : "Слушаю микрофон. Шумоподавление включено, если поддерживается телефоном.");
+
+        byte[] buffer = new byte[8192];
         StringBuilder completed = new StringBuilder();
+        long lastPartialUpdate = 0;
         while (running) {
-            int count = recorder.read(buffer, 0, buffer.length);
-            if (count <= 0) continue;
+            int count = recorder.read(buffer, 0, buffer.length, AudioRecord.READ_BLOCKING);
+            if (count < 0) throw new Exception("Ошибка чтения аудио: " + count);
+            if (count == 0) continue;
             if (recognizer.acceptWaveForm(buffer, count)) {
                 JSONObject result = new JSONObject(recognizer.getResult());
                 String phrase = result.optString("text", "").trim();
@@ -220,33 +197,66 @@ public class SubtitleForegroundService extends Service {
                     completed.append(phrase);
                     String window = lastSentences(completed.toString(), 3);
                     translateAndShow(window);
-                    if (completed.length() > 1600)
-                        completed.delete(0, completed.length() - 900);
+                    if (completed.length() > 1400) completed.delete(0, completed.length() - 850);
                 }
             } else {
-                JSONObject partial = new JSONObject(recognizer.getPartialResult());
-                String p = partial.optString("partial", "").trim();
-                if (!p.isEmpty()) showSubtitle(lastSentences(completed.toString(), 3), p);
+                long now = System.currentTimeMillis();
+                if (now - lastPartialUpdate > 350) {
+                    JSONObject partial = new JSONObject(recognizer.getPartialResult());
+                    String p = partial.optString("partial", "").trim();
+                    if (!p.isEmpty()) {
+                        String provisional = completed.length() == 0 ? p : completed + ". " + p;
+                        showSubtitle(provisional, "Распознаю речь…");
+                    }
+                    lastPartialUpdate = now;
+                }
             }
         }
         try {
-            String finalText = new JSONObject(recognizer.getFinalResult())
-                .optString("text", "").trim();
+            String finalText = new JSONObject(recognizer.getFinalResult()).optString("text", "").trim();
             if (!finalText.isEmpty()) translateAndShow(finalText);
-        } catch (Exception ignored) {}
+        } catch (Exception e) { Log.w(TAG, "Final recognition result", e); }
+    }
+
+    private void enableMicrophoneEnhancements() {
+        try {
+            int session = recorder.getAudioSessionId();
+            if (NoiseSuppressor.isAvailable()) {
+                noiseSuppressor = NoiseSuppressor.create(session);
+                if (noiseSuppressor != null) noiseSuppressor.setEnabled(true);
+            }
+            if (AutomaticGainControl.isAvailable()) {
+                automaticGainControl = AutomaticGainControl.create(session);
+                if (automaticGainControl != null) automaticGainControl.setEnabled(true);
+            }
+            if (AcousticEchoCanceler.isAvailable()) {
+                echoCanceler = AcousticEchoCanceler.create(session);
+                if (echoCanceler != null) echoCanceler.setEnabled(true);
+            }
+        } catch (Exception e) { Log.w(TAG, "Audio enhancement unavailable", e); }
     }
 
     private void translateAndShow(String original) {
         if (original == null || original.trim().isEmpty()) return;
-        if (translator == null) {
-            showSubtitle(original, original);
-            return;
-        }
-        translator.translate(original).addOnSuccessListener(translated ->
-            showSubtitle(original, translated)
-        ).addOnFailureListener(e -> {
-            status("Распознано, но перевод не выполнен: " + e.getMessage());
-            showSubtitle(original, "Перевод недоступен. Проверьте модель языка.");
+        final long generation = displayGeneration.incrementAndGet();
+        if (translator == null) { showSubtitle(original, original); return; }
+        translationQueue.execute(() -> {
+            if (generation != displayGeneration.get()) return;
+            final CountDownLatch latch = new CountDownLatch(1);
+            translator.translate(original)
+                .addOnSuccessListener(translated -> {
+                    if (generation == displayGeneration.get()) showSubtitle(original, translated);
+                    latch.countDown();
+                })
+                .addOnFailureListener(e -> {
+                    if (generation == displayGeneration.get()) {
+                        status("Речь распознана, но перевод не выполнен: " + e.getMessage());
+                        showSubtitle(original, "Перевод недоступен");
+                    }
+                    latch.countDown();
+                });
+            try { latch.await(45, TimeUnit.SECONDS); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         });
     }
 
@@ -264,50 +274,48 @@ public class SubtitleForegroundService extends Service {
 
     private File getSpeechModel(String lang) throws Exception {
         File base = new File(getFilesDir(), "models");
-        if (!base.exists()) base.mkdirs();
-        String name = lang.equals("en")
-            ? "vosk-model-small-en-us-0.15" : "vosk-model-small-ru-0.22";
+        if (!base.exists() && !base.mkdirs()) throw new Exception("Не удалось создать папку моделей");
+        String name = lang.equals("en") ? "vosk-model-small-en-us-0.15" : "vosk-model-small-ru-0.22";
         File dest = new File(base, name);
         if (new File(dest, "am/final.mdl").exists()) return dest;
-        status("Загружаем модель речи " + (lang.equals("ru") ? "русского" : "английского")
-            + " языка. При первом запуске это может занять время.");
+        status("Загружаем модель речи " + (lang.equals("ru") ? "русского" : "английского") + " языка...");
         File zipFile = new File(base, name + ".zip");
-        status("Подключаемся к серверу модели речи...");
-        HttpURLConnection c = (HttpURLConnection)
-            new URL("https://alphacephei.com/vosk/models/" + name + ".zip").openConnection();
-        c.setInstanceFollowRedirects(true);
-        c.setRequestProperty("User-Agent", "SubtitleApp/3.0 Android");
-        c.setConnectTimeout(30000);
-        c.setReadTimeout(120000);
-        c.connect();
-        int response = c.getResponseCode();
-        int length = c.getContentLength();
-        if (response != HttpURLConnection.HTTP_OK) {
-            String detail = "HTTP " + response + " " + c.getResponseMessage();
-            throw new IOException("Сервер модели не начал загрузку: " + detail);
-        }
-        status("Соединение установлено. Начинаем загрузку модели речи...");
-        try (InputStream in = c.getInputStream(); FileOutputStream out = new FileOutputStream(zipFile)) {
-            byte[] b = new byte[32768]; int n; long total = 0; int last = -1;
-            while ((n = in.read(b)) != -1) {
-                if (!running) throw new Exception("Загрузка остановлена");
-                out.write(b, 0, n); total += n;
-                if (length > 0) {
-                    int percent = (int)(total * 100 / length);
-                    if (percent != last) { last = percent; status("Загрузка модели речи: " + percent + "%"); }
-                } else if (total / (1024*1024) != (total-n) / (1024*1024)) {
-                    status("Загружено " + (total/(1024*1024)) + " МБ модели речи");
+        HttpURLConnection c = (HttpURLConnection)new URL(
+            "https://alphacephei.com/vosk/models/" + name + ".zip").openConnection();
+        c.setConnectTimeout(25000); c.setReadTimeout(120000); c.setInstanceFollowRedirects(true);
+        c.setRequestProperty("User-Agent", "SubtitleApp/3.1 Android");
+        try {
+            c.connect();
+            int response = c.getResponseCode();
+            if (response != HttpURLConnection.HTTP_OK)
+                throw new Exception("Сервер модели ответил: HTTP " + response);
+            int length = c.getContentLength();
+            try (InputStream in = new BufferedInputStream(c.getInputStream());
+                 FileOutputStream out = new FileOutputStream(zipFile)) {
+                byte[] b = new byte[65536]; int n; long total = 0; int last = -1;
+                while ((n = in.read(b)) != -1) {
+                    if (!running) throw new Exception("Загрузка остановлена");
+                    out.write(b, 0, n); total += n;
+                    if (length > 0) {
+                        int percent = (int)(total * 100 / length);
+                        if (percent != last) { last = percent; status("Загрузка модели речи: " + percent + "%"); }
+                    } else if (total / (1024*1024) != (total-n) / (1024*1024)) {
+                        status("Загружено " + (total/(1024*1024)) + " МБ модели речи");
+                    }
                 }
             }
         } finally { c.disconnect(); }
-        dest.mkdirs();
+        if (!zipFile.exists() || zipFile.length() < 1024*1024)
+            throw new Exception("Архив модели загружен не полностью");
+        deleteRecursively(dest);
+        if (!dest.mkdirs() && !dest.isDirectory()) throw new Exception("Не удалось создать папку модели");
         try (ZipInputStream zip = new ZipInputStream(new BufferedInputStream(new FileInputStream(zipFile)))) {
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
                 String nameInZip = entry.getName();
                 int slash = nameInZip.indexOf('/');
                 String relative = slash >= 0 ? nameInZip.substring(slash + 1) : nameInZip;
-                if (relative.isEmpty()) continue;
+                if (relative.isEmpty()) { zip.closeEntry(); continue; }
                 File outFile = new File(dest, relative);
                 if (!outFile.getCanonicalPath().startsWith(dest.getCanonicalPath() + File.separator))
                     throw new IOException("Некорректный путь в архиве");
@@ -315,16 +323,17 @@ public class SubtitleForegroundService extends Service {
                 else {
                     File parent = outFile.getParentFile(); if (parent != null) parent.mkdirs();
                     try (FileOutputStream out = new FileOutputStream(outFile)) {
-                        byte[] b = new byte[32768]; int n;
+                        byte[] b = new byte[65536]; int n;
                         while ((n = zip.read(b)) != -1) out.write(b, 0, n);
                     }
                 }
                 zip.closeEntry();
             }
+        } finally { zipFile.delete(); }
+        if (!new File(dest, "am/final.mdl").exists()) {
+            deleteRecursively(dest);
+            throw new Exception("Модель не распаковалась полностью. Повторите загрузку.");
         }
-        zipFile.delete();
-        if (!new File(dest, "am/final.mdl").exists())
-            throw new Exception("Файл модели повреждён или распакован не полностью");
         return dest;
     }
 
@@ -332,8 +341,7 @@ public class SubtitleForegroundService extends Service {
         new Thread(() -> {
             try {
                 if (type == 0 || type == 1) {
-                    String name = type == 0 ? "vosk-model-small-ru-0.22"
-                        : "vosk-model-small-en-us-0.15";
+                    String name = type == 0 ? "vosk-model-small-ru-0.22" : "vosk-model-small-en-us-0.15";
                     deleteRecursively(new File(new File(getFilesDir(), "models"), name));
                     status("Модель распознавания удалена.");
                 } else if (type == 2 && target != null) {
@@ -347,6 +355,7 @@ public class SubtitleForegroundService extends Service {
     }
 
     private void deleteRecursively(File f) {
+        if (f == null || !f.exists()) return;
         if (f.isDirectory()) {
             File[] children = f.listFiles();
             if (children != null) for (File child : children) deleteRecursively(child);
@@ -369,17 +378,16 @@ public class SubtitleForegroundService extends Service {
                     subtitleView.setTextSize(18);
                     subtitleView.setGravity(Gravity.CENTER);
                     subtitleView.setPadding(18, 14, 18, 14);
+                    subtitleView.setMaxLines(8);
                     GradientDrawable bg = new GradientDrawable();
                     bg.setColor(0xE6111722); bg.setCornerRadius(18);
                     subtitleView.setBackground(bg);
                     WindowManager.LayoutParams p = new WindowManager.LayoutParams(
-                        WindowManager.LayoutParams.MATCH_PARENT,
-                        WindowManager.LayoutParams.WRAP_CONTENT,
+                        WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT,
                         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
                         WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                        PixelFormat.TRANSLUCENT);
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, PixelFormat.TRANSLUCENT);
                     p.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL; p.y = 120;
                     windowManager.addView(subtitleView, p);
                 }
@@ -389,9 +397,6 @@ public class SubtitleForegroundService extends Service {
     }
 
     private void status(String message) {
-        getSharedPreferences("subtitle_settings", MODE_PRIVATE).edit()
-            .putString("last_status", message).apply();
-        appendDiagnostic("СТАТУС: " + message, null);
         Intent i = new Intent(ACTION_STATUS);
         i.setPackage(getPackageName());
         i.putExtra("message", message);
@@ -399,42 +404,26 @@ public class SubtitleForegroundService extends Service {
         Log.i(TAG, message);
     }
 
-    private void diagnostic(String message, Throwable error) {
-        Log.e(TAG, message, error);
-        appendDiagnostic(message, error);
-    }
-
-    private synchronized void appendDiagnostic(String message, Throwable error) {
-        File file = new File(getFilesDir(), "subtitle_diagnostics.txt");
-        try (FileWriter writer = new FileWriter(file, true)) {
-            writer.write(new java.text.SimpleDateFormat(
-                "yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date()));
-            writer.write("  " + message + "\n");
-            if (error != null) {
-                StringWriter sw = new StringWriter();
-                error.printStackTrace(new PrintWriter(sw));
-                writer.write(sw.toString());
-                writer.write("\n");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Не удалось записать диагностику", e);
-        }
-    }
-
     private String readableError(Exception e) {
         String m = e.getMessage();
-        if (m == null || m.trim().isEmpty()) return "неизвестная ошибка";
-        return m;
+        return m == null || m.trim().isEmpty() ? "неизвестная ошибка" : m;
     }
 
     @Override public void onDestroy() {
         running = false;
-        try { if (recorder != null) { if (recorder.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) recorder.stop(); recorder.release(); } } catch (Exception ignored) {}
+        try { if (recorder != null && recorder.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) recorder.stop(); } catch (Exception ignored) {}
+        try { if (recorder != null) recorder.release(); } catch (Exception ignored) {}
         recorder = null;
+        releaseEffect(noiseSuppressor); noiseSuppressor = null;
+        releaseEffect(automaticGainControl); automaticGainControl = null;
+        releaseEffect(echoCanceler); echoCanceler = null;
         try { if (projection != null) projection.stop(); } catch (Exception ignored) {}
         projection = null;
         try { if (translator != null) translator.close(); } catch (Exception ignored) {}
+        translator = null;
         try { if (recognizer != null) recognizer.close(); if (model != null) model.close(); } catch (Exception ignored) {}
+        recognizer = null; model = null;
+        translationQueue.shutdownNow();
         main.post(() -> {
             try { if (subtitleView != null && windowManager != null) windowManager.removeView(subtitleView); }
             catch (Exception ignored) {}
@@ -442,6 +431,10 @@ public class SubtitleForegroundService extends Service {
         });
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         super.onDestroy();
+    }
+
+    private void releaseEffect(android.media.audiofx.AudioEffect effect) {
+        try { if (effect != null) effect.release(); } catch (Exception ignored) {}
     }
 
     @Override public IBinder onBind(Intent intent) { return null; }

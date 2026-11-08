@@ -10,8 +10,8 @@ android {
         applicationId 'com.daliar26.subtitles'
         minSdk 26
         targetSdk 34
-        versionCode 3
-        versionName '3.0'
+        versionCode 4
+        versionName '3.1'
     }
 
     compileOptions {
@@ -19,19 +19,7 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
-    packaging {
-        jniLibs {
-            useLegacyPackaging true
-        }
-    }
-}
-
-configurations.configureEach {
-    resolutionStrategy.force(
-        'org.jetbrains.kotlin:kotlin-stdlib:1.8.22',
-        'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22',
-        'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
-    )
+    packaging { jniLibs { useLegacyPackaging true } }
 }
 
 dependencies {

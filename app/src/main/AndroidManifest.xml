@@ -9,7 +9,7 @@
 
     <application
         android:allowBackup="false"
-        android:label="SubtitleApp 3.0"
+        android:label="SubtitleApp 3.1"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
 
