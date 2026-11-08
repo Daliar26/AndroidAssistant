@@ -22,6 +22,14 @@ android {
     packaging { jniLibs { useLegacyPackaging true } }
 }
 
+// Vosk pulls legacy Kotlin JDK7/JDK8 adapter artifacts (1.6.21).
+// Their classes are already included in kotlin-stdlib 1.8.22,
+// so exclude the old adapter JARs to prevent duplicate classes.
+configurations.configureEach {
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+    exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+}
+
 dependencies {
     implementation 'androidx.core:core:1.15.0'
     implementation 'com.alphacephei:vosk-android:0.3.75@aar'
